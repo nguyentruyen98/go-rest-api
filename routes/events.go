@@ -34,13 +34,6 @@ func getEvents(context *gin.Context) {
 }
 func createEvent(context *gin.Context) {
 
-	token := context.Request.Header.Get("Authorization")
-
-	if token == "" {
-		context.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
-		return
-	}
-
 	var event models.Event
 	err := context.ShouldBindJSON(&event)
 
@@ -48,6 +41,9 @@ func createEvent(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse the payload"})
 		return
 	}
+
+	userId := context.GetInt64("userId")
+	event.UserID = userId
 	err = event.Save()
 
 	if err != nil {
@@ -65,10 +61,16 @@ func updateEvent(context *gin.Context) {
 		return
 	}
 
-	_, err = models.GetEventById(eventId)
+	userId := context.GetInt64("userId")
+	event, err := models.GetEventById(eventId)
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Couldn't fetch event by Id"})
+		return
+	}
+
+	if event.UserID != userId {
+		context.JSON(http.StatusForbidden, gin.H{"message": "You are not allowed to update this event"})
 		return
 	}
 
